@@ -2,32 +2,32 @@
 
 # TO DO: import modules
 import socket
-import imghdr
 import os
 
 # TO DO: set constants
 DEFAULT_URL = "index.html"
-REDIRECTION_DICTIONARY = {"imgs\\loading.gif": "/imgs/abstract.jpg",}
+REDIRECTION_DICTIONARY = {"imgs\\loading.gif": "/imgs/abstract.jpg", }
 FORBIDDEN = ("imgs\\test.jpg",)
 IP = "0.0.0.0"
 PORT = 80
 SOCKET_TIMEOUT = 2
+ROOT = "C:\\webroot\\"
+HTTP_OK = "HTTP/1.0 200 OK\r\n"
+HTTP_ERROR = "HTTP/1.0 500 Internal Server Error\r\n\r\n"
+HTTP_NOT_FOUND = "HTTP/1.0 404 Not Found\r\n\r\n"
+HTTP_FORBIDDEN = "HTTP/1.0 403 Forbidden\r\n\r\n"
+HTTP_REDIRECTION = "HTTP/1.0 302 Found\r\nLocation: "
 
 
 def get_file_data(filename):
     """ Get data from file """
-    file = "C:\webroot\\" + filename
+    file = ROOT + filename
 
     if os.path.exists(file):
         if filename not in FORBIDDEN:
-            if imghdr.what(file) == "jpeg":
-                read_file = open(file, 'rb')
-                data = read_file.read()
-                data = ("Content-Length: " + (str(len(data))) + "\r\n\r\n").encode() + data
-            else:
-                read_file = open(file, 'r')
-                data = read_file.read()
-                data = ("Content-Length: " + str(len(data)) + "\r\n\r\n" + data).encode()
+            read_file = open(file, 'rb')
+            data = read_file.read()
+            data = ("Content-Length: " + str(len(data)) + "\r\n\r\n").encode() + data
             read_file.close()
             return data
         else:
@@ -47,7 +47,7 @@ def handle_client_request(resource, client_socket):
     # TO DO: check if URL had been redirected, not available or other error code. For example:
     if url in REDIRECTION_DICTIONARY:
         # TO DO: send 302 redirection response
-        http_header = "HTTP/1.0 302 Found\r\nLocation: " + REDIRECTION_DICTIONARY.get(url) + "\r\n\r\n"
+        http_header = HTTP_REDIRECTION + REDIRECTION_DICTIONARY.get(url) + "\r\n\r\n"
         client_socket.send(http_header.encode())
         return
 
@@ -57,19 +57,19 @@ def handle_client_request(resource, client_socket):
 
     if filetype == 'html':
         # TO DO: generate proper HTTP header
-        http_header = "HTTP/1.0 200 OK\r\n" + "Content-Type: text/html; charset=utf-8\r\n"
+        http_header = HTTP_OK + "Content-Type: text/html; charset=utf-8\r\n"
     # TO DO: handle all other headers
     elif filetype == 'css':
-        http_header = "HTTP/1.0 200 OK\r\n" + "Content-Type: text/css\r\n"
+        http_header = HTTP_OK + "Content-Type: text/css\r\n"
     elif filetype == 'jpg':
         # TO DO: generate proper jpg header
-        http_header = "HTTP/1.0 200 OK\r\n" + "Content-Type: image/jpeg\r\n"
+        http_header = HTTP_OK + "Content-Type: image/jpeg\r\n"
     elif filetype == 'js':
-        http_header = "HTTP/1.0 200 OK\r\n" + "Content-Type: text/javascript; charset=UTF-8\r\n"
+        http_header = HTTP_OK + "Content-Type: text/javascript; charset=UTF-8\r\n"
     elif filetype == 'ico':
-        http_header = "HTTP/1.0 200 OK\r\n" + "Content-Type: image/x-icon\r\n"
+        http_header = HTTP_OK + "Content-Type: image/x-icon\r\n"
     else:
-        http_header = "HTTP/1.0 500 Internal Server Error\r\n\r\n"
+        http_header = HTTP_ERROR
         client_socket.send(http_header.encode())
         return
     # TO DO: read the data from the file
@@ -77,9 +77,9 @@ def handle_client_request(resource, client_socket):
     data = get_file_data(url)
 
     if data == "NOT FOUND":
-        http_response = "HTTP/1.0 404 Not Found\r\n\r\n".encode()
-    if data == "FORBIDDEN":
-        http_response = "HTTP/1.0 403 Forbidden\r\n\r\n".encode()
+        http_response = HTTP_NOT_FOUND.encode()
+    elif data == "FORBIDDEN":
+        http_response = HTTP_FORBIDDEN.encode()
     else:
         http_response = http_header.encode() + data
 
@@ -114,6 +114,8 @@ def handle_client(client_socket):
             break
         else:
             print('Error: Not a valid HTTP request')
+            http_header = HTTP_ERROR
+            client_socket.send(http_header.encode())
             break
     print('Closing connection')
     client_socket.close()
@@ -130,7 +132,10 @@ def main():
         client_socket, client_address = server_socket.accept()
         print('New connection received')
         client_socket.settimeout(SOCKET_TIMEOUT)
-        handle_client(client_socket)
+        try:
+            handle_client(client_socket)
+        except socket.timeout:
+            print("timeout")
 
 
 if __name__ == "__main__":
